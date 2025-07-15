@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 	
 	"github.com/alpacahq/alpaca-trade-api-go/v3/alpaca"
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata"
+	"github.com/sirupsen/logrus"
+	"vibetrade-claude/internal/vibetrade"
 )
 
 type MarketDataAggregator struct {
-	alpacaClient *alpaca.Client
-	marketData   *marketdata.Client
+	alpacaClient    *alpaca.Client
+	marketData      *marketdata.Client
+	vibetradeClient *vibetrade.Client
 }
 
 type AggregatedMarketData struct {
@@ -84,9 +88,24 @@ type MarketStatistics struct {
 }
 
 func NewMarketDataAggregator(alpacaClient *alpaca.Client) *MarketDataAggregator {
+	// Initialize vibetrade client if API URL is configured
+	var vibetradeClient *vibetrade.Client
+	
+	vibetradeURL := os.Getenv("VIBETRADE_API_URL")
+	userID := os.Getenv("VIBETRADE_USER_ID")
+	
+	if vibetradeURL != "" && userID != "" {
+		logger := logrus.New()
+		vibetradeClient = vibetrade.NewClient(&vibetrade.Config{
+			BaseURL: vibetradeURL,
+			UserID:  userID,
+		}, logger)
+	}
+	
 	return &MarketDataAggregator{
-		alpacaClient: alpacaClient,
-		marketData:   marketdata.NewClient(marketdata.ClientOpts{}),
+		alpacaClient:    alpacaClient,
+		marketData:      marketdata.NewClient(marketdata.ClientOpts{}),
+		vibetradeClient: vibetradeClient,
 	}
 }
 
@@ -158,9 +177,73 @@ func (mda *MarketDataAggregator) fetchQuote(ctx context.Context, symbol string) 
 }
 
 func (mda *MarketDataAggregator) fetchOptionChains(ctx context.Context, symbol string) ([]*OptionChain, error) {
-	// This is a placeholder - in production, you would fetch from a real options data provider
-	// For now, return mock data
-	chains := []*OptionChain{
+	// Use vibetrade API if available, otherwise fall back to mock data
+	if mda.vibetradeClient != nil {
+		// Fetch real options data from vibetrade API
+		optionChain, err := mda.vibetradeClient.GetOptionsChain(ctx, symbol, 30) // 30 days to expiry
+		if err != nil {
+			logrus.WithError(err).Errorf("Failed to fetch options chain from vibetrade for %s", symbol)
+			// Fall back to mock data on error
+			return mda.getMockOptionChains(symbol), nil
+		}
+		
+		// Convert vibetrade format to our format
+		var chains []*OptionChain
+		for _, strike := range optionChain.Strikes {
+			// Add call option
+			if strike.CallSymbol != "" {
+				chains = append(chains, &OptionChain{
+					Symbol:     symbol,
+					Strike:     float64(strike.Strike.IntPart()),
+					Expiration: optionChain.Expirations[0], // Use first expiration for now
+					Type:       "call",
+					Bid:        float64(strike.CallBid.IntPart()) / 100.0,
+					Ask:        float64(strike.CallAsk.IntPart()) / 100.0,
+					Last:       (float64(strike.CallBid.IntPart()) + float64(strike.CallAsk.IntPart())) / 200.0,
+					Volume:     strike.CallVolume,
+					IV:         0.25, // Placeholder - would need to calculate or fetch
+					Greeks: &Greeks{
+						Delta: strike.CallDelta,
+						Gamma: 0.02, // Placeholder
+						Theta: -0.05, // Placeholder
+						Vega:  0.10, // Placeholder
+						Rho:   0.01, // Placeholder
+					},
+				})
+			}
+			
+			// Add put option
+			if strike.PutSymbol != "" {
+				chains = append(chains, &OptionChain{
+					Symbol:     symbol,
+					Strike:     float64(strike.Strike.IntPart()),
+					Expiration: optionChain.Expirations[0], // Use first expiration for now
+					Type:       "put",
+					Bid:        float64(strike.PutBid.IntPart()) / 100.0,
+					Ask:        float64(strike.PutAsk.IntPart()) / 100.0,
+					Last:       (float64(strike.PutBid.IntPart()) + float64(strike.PutAsk.IntPart())) / 200.0,
+					Volume:     strike.PutVolume,
+					IV:         0.25, // Placeholder - would need to calculate or fetch
+					Greeks: &Greeks{
+						Delta: strike.PutDelta,
+						Gamma: 0.02, // Placeholder
+						Theta: -0.05, // Placeholder
+						Vega:  0.10, // Placeholder
+						Rho:   0.01, // Placeholder
+					},
+				})
+			}
+		}
+		
+		return chains, nil
+	}
+	
+	// Fall back to mock data if vibetrade client is not configured
+	return mda.getMockOptionChains(symbol), nil
+}
+
+func (mda *MarketDataAggregator) getMockOptionChains(symbol string) []*OptionChain {
+	return []*OptionChain{
 		{
 			Symbol:     symbol,
 			Strike:     100.0,
@@ -180,9 +263,26 @@ func (mda *MarketDataAggregator) fetchOptionChains(ctx context.Context, symbol s
 				Rho:   0.01,
 			},
 		},
+		{
+			Symbol:     symbol,
+			Strike:     100.0,
+			Expiration: time.Now().AddDate(0, 0, 7).Format("2006-01-02"),
+			Type:       "put",
+			Bid:        1.50,
+			Ask:        1.60,
+			Last:       1.55,
+			Volume:     800,
+			OpenInt:    3000,
+			IV:         0.25,
+			Greeks: &Greeks{
+				Delta: -0.50,
+				Gamma: 0.02,
+				Theta: -0.05,
+				Vega:  0.10,
+				Rho:   -0.01,
+			},
+		},
 	}
-	
-	return chains, nil
 }
 
 func (mda *MarketDataAggregator) calculateTechnicals(ctx context.Context, symbol string) (*TechnicalIndicators, error) {

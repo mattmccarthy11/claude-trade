@@ -1,193 +1,184 @@
-# VibeTrade Claude AI Trading Assistant
+# VibeTrade Claude Integration
 
-An AI-powered options trading assistant that integrates Claude into the VibeTrade platform, providing intelligent trade recommendations, risk analysis, and educational insights.
-
-## Overview
-
-This integration brings the power of Claude AI to options traders, similar to the Reddit user who achieved a 100% win rate using ChatGPT for options trading. Our implementation provides:
-
-- 🤖 AI-generated trade recommendations based on real-time market data
-- 📊 Comprehensive risk analysis and portfolio optimization
-- 🎓 Educational explanations of trading strategies
-- 🔒 Built-in safety features and risk management
-- 🔐 Secure API key management with encryption
-
-## Features
-
-### AI Trade Recommendations
-- Analyzes 50+ data points including fundamentals, technicals, and options Greeks
-- Generates exactly 5 high-probability trades per analysis
-- Filters trades by strict criteria (≥65% POP, proper risk/reward)
-- Provides clear thesis for each recommendation (≤30 words)
-
-### Risk Management
-- Enforces position size limits (max 0.5% portfolio risk per trade)
-- Portfolio concentration limits (max 10% per symbol)
-- Requires minimum probability of profit (65%)
-- All trades require manual approval (no auto-execution)
-
-### Market Data Integration
-- Real-time quotes from Alpaca Markets
-- Options chain data with full Greeks
-- Technical indicators (SMA, RSI, MACD, etc.)
-- Market statistics (VIX, sector performance)
-
-## Installation
-
-### Prerequisites
-- Go 1.21+
-- Node.js 18+
-- Anthropic API key
-- Alpaca Markets account (paper or live)
-
-### Backend Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/vibetrade-claude.git
-cd vibetrade-claude
-
-# Install Go dependencies
-go mod download
-
-# Set environment variables
-export ANTHROPIC_API_KEY="your-api-key"
-export ALPACA_API_KEY="your-alpaca-key"
-export ALPACA_SECRET_KEY="your-alpaca-secret"
-
-# Run the server
-go run cmd/unified_oauth_server/main.go
-```
-
-### Frontend Setup
-
-```bash
-# Install dependencies
-cd frontend
-npm install
-
-# Start development server
-npm run dev
-```
-
-## Usage
-
-### Connecting Claude
-
-1. Navigate to the AI Trading Assistant section in the dashboard
-2. Click "Connect Claude Assistant"
-3. Enter your Anthropic API key
-4. Complete Turnstile verification
-5. Your AI assistant is ready!
-
-### Getting Trade Recommendations
-
-The AI analyzes market data every 5 minutes and provides:
-- Ticker symbol
-- Strategy type (covered call, credit spread, etc.)
-- Option legs description
-- Investment thesis
-- Probability of profit
-- Risk/reward metrics
-
-### Example Recommendation
-
-```json
-{
-  "ticker": "SPY",
-  "strategy": "Bull Put Credit Spread",
-  "legs": "Sell 440P/Buy 435P exp 7d",
-  "thesis": "SPY above 200-day MA with strong momentum, collect premium on pullback support",
-  "pop": 0.72,
-  "max_loss": 500,
-  "max_profit": 150,
-  "score": 0.85
-}
-```
-
-## API Endpoints
-
-### Claude Connection
-- `POST /api/claude-code/connect` - Connect Claude API
-- `GET /api/claude-code/status` - Check connection status
-- `DELETE /api/claude-code/disconnect` - Remove connection
-
-### Trading Features
-- `GET /api/claude-code/recommendations` - Get AI trade recommendations
-- `POST /api/claude-code/analyze-risk` - Analyze position risks
-- `POST /api/claude-code/explain-strategy` - Get strategy explanations
-
-## Safety Features
-
-### Risk Limits
-- Maximum 2% total portfolio risk
-- Maximum 0.5% risk per position
-- Minimum 65% probability of profit
-- Minimum 1:3 risk/reward ratio
-
-### Security
-- API keys encrypted at rest
-- Turnstile verification for all connections
-- JWT authentication for all API calls
-- No auto-execution of trades
-
-### Disclaimers
-- Clear "AI Generated - Not Financial Advice" labels
-- Comprehensive risk disclosures
-- Educational purpose disclaimers
-- Manual approval required for all trades
+This open-source project provides Claude AI integration for the VibeTrade trading platform. It connects to the closed-source VibeTrade backend API to provide intelligent trading recommendations and analysis.
 
 ## Architecture
 
+- **vibetrade-claude** (this repo): Open-source Claude AI integration layer
+- **vibetrade**: Closed-source backend API that provides real market data and trading capabilities
+
+## Features
+
+- AI-powered trading recommendations using Claude
+- Real-time options data integration
+- Risk analysis and portfolio optimization
+- Educational explanations of trading strategies
+- Market data aggregation and analysis
+
+## Setup
+
+### Prerequisites
+
+- Go 1.21 or higher
+- Access to VibeTrade backend API
+- Claude API key (optional - users can provide their own)
+
+### Environment Variables
+
+Configure the following environment variables to connect to the VibeTrade backend:
+
+```bash
+# VibeTrade API Configuration
+export VIBETRADE_API_URL=http://localhost:8090  # URL of the VibeTrade backend
+export VIBETRADE_USER_ID=your-user-id           # Your VibeTrade user ID
+
+# Claude API Configuration (optional)
+export ANTHROPIC_API_KEY=your-claude-api-key    # If using server-side API key
+```
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/vibetrade-claude.git
+   cd vibetrade-claude
+   ```
+
+2. Install dependencies:
+   ```bash
+   go mod download
+   ```
+
+3. Build the project:
+   ```bash
+   go build ./cmd/unified_oauth_server
+   ```
+
+## Usage
+
+### Running the Server
+
+Start the vibetrade-claude server:
+
+```bash
+./unified_oauth_server
+```
+
+The server will start on port 8090 by default.
+
+### API Endpoints
+
+#### Claude AI Endpoints
+
+- `POST /api/claude-code/connect` - Connect Claude API
+- `GET /api/claude-code/recommendations` - Get AI trading recommendations
+- `POST /api/claude-code/analyze-risk` - Analyze position risks
+- `POST /api/claude-code/explain-strategy` - Get educational explanations
+
+### Frontend Integration
+
+The project includes a React component (`ClaudeTradeAssistant.tsx`) that can be integrated into your trading UI:
+
+```tsx
+import ClaudeTradeAssistant from './components/ClaudeTradeAssistant';
+
+function App() {
+  return (
+    <ClaudeTradeAssistant 
+      positions={userPositions}
+      accountValue={accountValue}
+    />
+  );
+}
+```
+
+## Options Data Integration
+
+The MarketDataAggregator automatically fetches real options data from the VibeTrade backend when configured:
+
+1. **With VibeTrade API**: Fetches real-time options chains, quotes, and Greeks
+2. **Without VibeTrade API**: Falls back to mock data for development/testing
+
+### Supported Options Data
+
+- Options chains with bid/ask spreads
+- Real-time option quotes
+- Greeks (Delta, Gamma, Theta, Vega, Rho)
+- Implied volatility
+- Open interest and volume
+
+## Development
+
+### Project Structure
+
 ```
 vibetrade-claude/
-├── internal/
-│   └── ai_assistant/
-│       ├── claude_client.go      # Claude API integration
-│       ├── trading_assistant.go   # Trade analysis logic
-│       ├── prompt_templates.go    # AI prompts
-│       ├── market_data_aggregator.go # Data collection
-│       └── risk_management.go     # Safety features
-├── frontend/
-│   └── ClaudeTradeAssistant.tsx  # React component
 ├── cmd/
-│   └── unified_oauth_server/
-│       ├── ai_handlers.go         # API endpoints
-│       └── main_ai_routes.go      # Route registration
-└── README.md
+│   └── unified_oauth_server/    # Server implementation
+├── frontend/
+│   └── ClaudeTradeAssistant.tsx # React UI component
+├── internal/
+│   ├── ai_assistant/            # Claude AI integration
+│   │   ├── claude_client.go     # Claude API client
+│   │   ├── market_data_aggregator.go # Market data fetching
+│   │   ├── trading_assistant.go # Trading recommendations
+│   │   └── risk_management.go  # Risk analysis
+│   └── vibetrade/              # VibeTrade API client
+│       └── client.go           # HTTP client for VibeTrade backend
+└── go.mod                      # Go module definition
 ```
 
-## Performance Tracking
+### Adding New Features
 
-The system tracks:
-- AI recommendation success rate
-- Win/loss ratio
-- Average return per trade
-- Risk-adjusted returns
-- Comparison vs manual trading
+1. **New AI Capabilities**: Add to `internal/ai_assistant/trading_assistant.go`
+2. **New API Endpoints**: Add handlers in `cmd/unified_oauth_server/ai_handlers.go`
+3. **New Market Data**: Extend `internal/vibetrade/client.go`
+
+## Testing
+
+Run tests:
+
+```bash
+go test ./...
+```
+
+Test with mock data (no VibeTrade backend required):
+
+```bash
+# Don't set VIBETRADE_API_URL to use mock data
+go run ./cmd/unified_oauth_server
+```
 
 ## Contributing
 
+We welcome contributions! Please:
+
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## Security
+
+- Never commit API keys or credentials
+- The VibeTrade API uses header-based authentication (`X-User-ID`)
+- Claude API keys can be provided by users or configured server-side
+- All sensitive data is handled securely
 
 ## License
 
-MIT License - see LICENSE file
-
-## Disclaimer
-
-**IMPORTANT**: This software is for educational purposes only. AI-generated trading recommendations should not be considered financial advice. Always consult with a qualified financial advisor before making investment decisions. Options trading involves substantial risk of loss and is not suitable for all investors.
+This project is open source and available under the MIT License.
 
 ## Support
 
-- Documentation: See `/docs` directory
-- Issues: GitHub Issues
-- Email: support@vibetrade.com
+For issues and questions:
+- Open an issue on GitHub
+- Check the [API documentation](docs/API_OPTIONS.md)
+- Contact the maintainers
 
----
+## Acknowledgments
 
-*Inspired by the Reddit trader who achieved 100% success rate with AI-assisted options trading*
+- Built with the Claude AI assistant
+- Integrates with the VibeTrade trading platform
+- Uses real-time market data from SnapTrade

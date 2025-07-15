@@ -1,7 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"strings"
+	"time"
+	
+	"vibetrade-claude/internal/ai_assistant"
 )
 
 // RegisterAIRoutes adds AI-related routes to the server
@@ -20,6 +28,14 @@ func (s *Server) RegisterAIRoutes(mux *http.ServeMux) {
 	
 	// Educational endpoints
 	mux.HandleFunc("/api/claude-code/explain-strategy", s.authenticateMiddleware(aiHandlers.HandleExplainStrategy))
+	
+	// Claude Code SDK endpoints
+	claudeCodeServiceURL := os.Getenv("CLAUDE_CODE_SERVICE_URL")
+	if claudeCodeServiceURL == "" {
+		claudeCodeServiceURL = "http://localhost:3001"
+	}
+	claudeCodeHandlers := NewClaudeCodeHandlers(s.logger, claudeCodeServiceURL)
+	claudeCodeHandlers.RegisterRoutes(mux)
 	
 	s.logger.Info("AI routes registered successfully")
 }

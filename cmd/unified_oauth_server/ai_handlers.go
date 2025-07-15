@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"time"
 	
-	"github.com/1a-li-lu-le-lo/remote-dev-terminal/options-strategy-module/internal/ai_assistant"
-	"github.com/1a-li-lu-le-lo/remote-dev-terminal/options-strategy-module/internal/snaptrade"
+	"vibetrade-claude/internal/ai_assistant"
 )
 
 type AIHandlers struct {
